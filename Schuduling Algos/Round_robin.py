@@ -1,82 +1,75 @@
 from collections import deque
 
-def round_robin_scheduling(processes, time_quantum):
+def round_robin_scheduling(processes, tq):
     n = len(processes)
-    remaining_times = {p: processes[p]['burst'] for p in processes}
-    wait_times = {p: 0 for p in processes}
-    turn_around_times = {p: 0 for p in processes}
-    completion_times = {p: 0 for p in processes}
+    remaining = {p: processes[p]["burst"] for p in processes}
+    CT = {p: 0 for p in processes}
+    WT = {p: 0 for p in processes}
+    TAT = {p: 0 for p in processes}
+
     current_time = 0
     queue = deque()
-    processed = {p: False for p in processes}
+    added = {p: False for p in processes}
 
     while True:
-        all_done = True
-
-        # Add all processes that have arrived and are not in the queue
+        # add arrived processes
         for p in processes:
-            if processes[p]['arrival'] <= current_time and not processed[p]:
+            if processes[p]["arrival"] <= current_time and not added[p]:
                 queue.append(p)
-                processed[p] = True
-                all_done = False
+                added[p] = True
 
-        if all_done and not queue:
+        # stop when all completed
+        if all(remaining[p] == 0 for p in remaining):
             break
 
-        if queue:
-            process = queue.popleft()
-            execution_time = min(time_quantum, remaining_times[process])
-            current_time += execution_time
-            remaining_times[process] -= execution_time
+        # CPU idle case
+        if not queue:
+            current_time += 1
+            continue
 
-            # Add newly arrived processes to the queue
-            for p in processes:
-                if processes[p]['arrival'] <= current_time and not processed[p]:
-                    queue.append(p)
-                    processed[p] = True
+        p = queue.popleft()
 
-            if remaining_times[process] == 0:
-                completion_times[process] = current_time
-                turn_around_times[process] = completion_times[process] - processes[process]['arrival']
-                wait_times[process] = turn_around_times[process] - processes[process]['burst']
+        exec_time = min(tq, remaining[p])
+        current_time += exec_time
+        remaining[p] -= exec_time
 
-            else:
-                queue.append(process)
+        # add newly arrived processes during this execution
+        for x in processes:
+            if processes[x]["arrival"] <= current_time and not added[x]:
+                queue.append(x)
+                added[x] = True
 
-    return wait_times, turn_around_times, completion_times
+        if remaining[p] == 0:
+            CT[p] = current_time
+            TAT[p] = CT[p] - processes[p]["arrival"]
+            WT[p] = TAT[p] - processes[p]["burst"]
+        else:
+            queue.append(p)
 
-# Input number of processes
-n = int(input("Enter the number of processes: "))
+    return WT, TAT, CT
 
-# Input process details
+
+# -------- INPUT ----------
+n = int(input("Enter number of processes: "))
 processes = {}
-print("Enter the arrival times and burst times for each process:")
+
 for i in range(n):
-    p_name = f"p{i+1}"
-    arrival = int(input(f"Arrival time of {p_name}: "))
-    burst = int(input(f"Burst time of {p_name}: "))
-    processes[p_name] = {
-        'arrival': arrival,
-        'burst': burst
-    }
+    name = f"P{i+1}"
+    at = int(input(f"Arrival time of {name}: "))
+    bt = int(input(f"Burst time of {name}: "))
+    processes[name] = {"arrival": at, "burst": bt}
 
-# Input time quantum
-time_quantum = int(input("Enter the time quantum: "))
+tq = int(input("Enter time quantum: "))
 
-# Call the Round Robin scheduling function
-wait_times, turn_around_times, completion_times = round_robin_scheduling(processes, time_quantum)
+WT, TAT, CT = round_robin_scheduling(processes, tq)
 
-# Output the results
-print("\n---------------------------------------------------------------------------------------------------------")
-print("Process\t  Arrival Time\t  Burst Time\t  Completion Time\t  Turnaround Time\t  Waiting Time")
+# -------- OUTPUT ----------
+print("\nProcess\tAT\tBT\tCT\tTAT\tWT")
 for p in processes:
-    print(f"  {p}\t\t{processes[p]['arrival']}\t\t{processes[p]['burst']}\t\t{completion_times[p]}\t\t\t{turn_around_times[p]}\t\t\t{wait_times[p]}")
-print("---------------------------------------------------------------------------------------------------------")
+    print(f"{p}\t{processes[p]['arrival']}\t{processes[p]['burst']}\t{CT[p]}\t{TAT[p]}\t{WT[p]}")
 
-# Calculate average waiting time and average turnaround time
-avg_wait_time = sum(wait_times.values()) / len(wait_times)
-avg_turn_around_time = sum(turn_around_times.values()) / len(turn_around_times)
+avg_wt = sum(WT.values()) / n
+avg_tat = sum(TAT.values()) / n
 
-# Output the averages
-print(f"\nAverage Waiting Time: {avg_wait_time:.2f}")
-print(f"Average Turnaround Time: {avg_turn_around_time:.2f}")
+print(f"\nAverage Waiting Time: {avg_wt:.2f}")
+print(f"Average Turnaround Time: {avg_tat:.2f}")
